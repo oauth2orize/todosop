@@ -60,10 +60,26 @@ module.exports = function() {
   ));
   
   passport.use(new BasicStrategy(
-    function(userid, password, done) {
+    function(clientId, clientSecret, cb) {
       console.log('auth basic');
-      console.log(userid);
-      console.log(password);
+      console.log(clientId);
+      console.log(clientSecret);
+      
+      db.get('SELECT rowid AS id, secret, redirect_uri FROM clients WHERE rowid = ?', [ clientId ], function(err, row) {
+        if (err) { return next(err); }
+        if (!row) { return cb(null, false); }
+        
+        if (!crypto.timingSafeEqual(Buffer.from(row.secret), Buffer.from(clientSecret))) {
+          return cb(null, false, { message: 'Incorrect username or password.' });
+        }
+    
+        var client = {
+          id: row.id.toString(),
+          secret: row.secret,
+          redirectURI: row.redirect_uri
+        };
+        return cb(null, client);
+      });
     }
   ));
   

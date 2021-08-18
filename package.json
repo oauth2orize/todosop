@@ -1,7 +1,7 @@
 {
   "name": "express-4.x-oauth2orize-openid-example",
   "version": "0.0.0",
-  "description": "Express 4.x app using OAuth2orize for identity.",
+  "description": "Express 4.x app using OAuth2orize for identity and session management.",
   "keywords": [
     "example",
     "express",
@@ -30,6 +30,7 @@
     "express-session": "^1.16.1",
     "morgan": "^1.9.1",
     "oauth2orize": "^1.11.0",
+    "oauth2orize-openid": "^0.4.0",
     "passport": "^0.4.0",
     "passport-http": "^0.3.0",
     "passport-http-bearer": "^1.0.1",

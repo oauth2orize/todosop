@@ -1,10 +1,13 @@
 var oauth2orize = require('oauth2orize');
+var openid = require('oauth2orize-openid');
 var crypto = require('crypto');
 var as = require('../as');
 var db = require('../db');
 
 
 module.exports = function() {
+  
+  as.grant(openid.extensions);
 
   as.grant(oauth2orize.grant.code(function(client, redirectURI, user, ares, cb) {
     console.log('TODO: code grant');

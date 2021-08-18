@@ -29,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(require('express-session')({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
+app.use(require('express-session')({ name: 'as.sid', secret: 'keyboard cat', resave: false, saveUninitialized: false }));
 
 app.use(function(req, res, next) {
   console.log('# ' + req.method + ' ' + req.url)
