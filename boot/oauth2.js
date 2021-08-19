@@ -8,7 +8,8 @@ var SignJWT = require('jose/jwt/sign').SignJWT;
 
 module.exports = function() {
   
-  as.grant(openid.extensions);
+  as.grant(openid.extensions());
+  as.grant(require('oauth2orize-response-mode').extensions());
 
   as.grant(oauth2orize.grant.code(function(client, redirectURI, user, ares, cb) {
     console.log('TODO: code grant');
@@ -33,6 +34,33 @@ module.exports = function() {
       });
     });
   }));
+  
+  as.grant(openid.grant.idToken({
+    modes: {
+      form_post: require('oauth2orize-fprm')
+    } },
+    function(client, user, ares, areq, cb) {
+      console.log('GRANT ID TOKEN!');
+      console.log(client)
+      console.log(user);
+      console.log(ares);
+      console.log(areq);
+    
+      var jwt = new SignJWT({ sub: user.id, nonce: areq.nonce });
+      jwt.setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setIssuer('http://localhost:3001/')
+        .setAudience(client.id)
+        .setExpirationTime('2h')
+        .sign(crypto.createSecretKey(Buffer.from('foofyasdfaeecasdfdafdedadfdfaedafaeasdfaedbasde')))
+        .then(function(idToken) {
+          console.log('PROMISED TOKEN');
+          console.log(idToken);
+        
+          return cb(null, idToken);
+        })
+    }
+  ));
   
   as.exchange(oauth2orize.exchange.code(function(client, code, redirectURI, cb) {
     console.log('TODO: code exchange');
