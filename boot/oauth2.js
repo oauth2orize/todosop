@@ -3,6 +3,7 @@ var openid = require('oauth2orize-openid');
 var crypto = require('crypto');
 var as = require('../as');
 var db = require('../db');
+var SignJWT = require('jose/jwt/sign').SignJWT;
 
 
 module.exports = function() {
@@ -59,7 +60,24 @@ module.exports = function() {
           row.user_id
         ], function(err) {
           if (err) { return cb(err); }
-          return cb(null, token);
+          
+          
+          var jwt = new SignJWT({ sub: row.user_id.toString() });
+          jwt.setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setIssuer('http://localhost:3001/')
+            .setAudience(client.id)
+            .setExpirationTime('2h')
+            .sign(crypto.createSecretKey(Buffer.from('foofyasdfaeecasdfdafdedadfdfaedafaeasdfaedbasde')))
+            .then(function(idToken) {
+              console.log('PROMISED TOKEN');
+              console.log(idToken);
+              
+              return cb(null, token, { id_token: idToken });
+            })
+          
+          
+          //return cb(null, token, { id_token: id_token });
         });
       });
     });

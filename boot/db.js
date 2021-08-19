@@ -42,7 +42,7 @@ module.exports = function() {
   
   // TODO: Only do this if not exists
   db.run('INSERT INTO clients (secret, redirect_uri, name) VALUES (?, ?, ?)', [
-    '7Fjfp0ZBr1KtDRbnfVdmIw',
+    'foofyasdfaeecasdfdafdedadfdfaedafaeasdfaedbasde',
     'http://localhost:3000/openidconnect/redirect',
     'My Example Client'
   ]);
