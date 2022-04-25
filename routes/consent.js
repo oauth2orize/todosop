@@ -1,51 +1,149 @@
+var createError = require('http-errors');
 var express = require('express');
-var qs = require('querystring');
-var ensureLoggedIn = require('connect-ensure-login').ensureLoggedIn;
+var csrf = require('csurf');
+var ensureLogIn = require('connect-ensure-login').ensureLoggedIn;
+var url = require('url');
 var db = require('../db');
+
+var ensureLoggedIn = ensureLogIn();
+
+function fetchClient(req, res, next) {
+  var clientID = req.query.client_id;
+  
+  db.get('SELECT * FROM clients WHERE id = ?', [ clientID ], function(err, row) {
+    if (err) { return next(err); }
+    if (!row) { return next(createError(400, 'Unknown client "' + clientID + '"')); }
+    var client = {
+      id: row.id,
+      name: row.name
+    };
+    res.locals.client = client;
+    next();
+  });
+}
+
+function fetchGrant(req, res, next) {
+  var grantID = req.params.grantID;
+  
+  db.get('SELECT * FROM grants WHERE id = ?', [ grantID ], function(err, row) {
+    if (err) { return next(err); }
+    if (!row) { return next(createError(404, 'Unknown grant "' + grantID + '"')); }
+    var grant = {
+      id: row.id,
+      userID: row.user_id,
+      clientID: row.client_id,
+      scope: row.scope ? row.scope.split(' ') : null
+    };
+    res.locals.grant = grant;
+    next();
+  });
+}
 
 var router = express.Router();
 
-/* GET users listing. */
-router.get('/',
-  ensureLoggedIn(),
+router.get('/consent',
+  csrf(),
+  ensureLoggedIn,
+  fetchClient,
   function(req, res, next) {
-    db.get('SELECT rowid AS id, redirect_uri, name FROM clients WHERE rowid = ?', [ req.query.client_id ], function(err, row) {
-      if (err) { return cb(err); }
-    
-      // TODO: Handle undefined row.
-    
-      var client = {
-        id: row.id.toString(),
-        name: row.name
-      };
-      res.render('consent', { user: req.user, client: client, state: req.query.state });
+    res.render('consent', {
+      user: req.user,
+      scope: req.query.scope ? req.query.scope.split(' ') : undefined,
+      action: url.parse(req.originalUrl).pathname,
+      csrfToken: req.csrfToken()
     });
   });
 
-router.post('/',
+router.post('/consent',
+  csrf(),
+  ensureLoggedIn,
   function(req, res, next) {
-    console.log('CREATE GRANT');
-    console.log(req.user);
-    console.log(req.body);
-  
-    db.run('INSERT INTO grants (user_id, client_id) VALUES (?, ?)', [
+    db.run('INSERT INTO grants (user_id, client_id, scope) VALUES (?, ?, ?)', [
       req.user.id,
-      req.body.client_id
+      req.body.client_id,
+      req.body.scope
     ], function(err) {
       if (err) { return next(err); }
-      
       var grant = {
-        id: this.lastID.toString(),
-        userID: req.user.id,
-        clientID: req.body.client_id
+        id: this.lastID,
+        scope: req.body.scope
       };
-      
-      console.log('CREATED GRANT!');
-      console.log(grant);
-      
-      if (req.body.state) {
-        return res.redirect('/oauth2/continue?'+ qs.stringify({ transaction_id: req.body.state }));
+      var to;
+      if (req.session.returnTo) {
+        to = url.parse(req.session.returnTo, true);
+        to.query.grant_id = grant.id;
+        to.query.scope = grant.scope;
+        delete to.search;
+        to = url.format(to);
+        delete req.session.returnTo;
       }
+      return res.redirect(to || '/');
+    });
+  });
+
+router.get('/consent/:grantID',
+  csrf(),
+  ensureLoggedIn,
+  fetchGrant,
+  function authorize(req, res, next) {
+    if (res.locals.grant.userID !== req.user.id) { return next(createError(403)); }
+    return next();
+  },
+  function resolveClient(req, res, next) {
+    var clientID = res.locals.grant.clientID;
+    
+    db.get('SELECT * FROM clients WHERE id = ?', [ clientID ], function(err, row) {
+      if (err) { return next(err); }
+      if (!row) { return next(createError(500, 'Failed to resolve client "' + clientID + '"')); }
+      var client = {
+        id: row.id,
+        name: row.name
+      };
+      res.locals.client = client;
+      next();
+    });
+  },
+  function(req, res, next) {
+    res.render('consent', {
+      user: req.user,
+      scope: req.query.scope ? req.query.scope.split(' ') : undefined,
+      action: url.parse(req.originalUrl).pathname,
+      csrfToken: req.csrfToken()
+    });
+  });
+
+router.post('/consent/:grantID',
+  csrf(),
+  ensureLoggedIn,
+  fetchGrant,
+  function authorize(req, res, next) {
+    if (res.locals.grant.userID !== req.user.id) { return next(createError(403)); }
+    return next();
+  },
+  function(req, res, next) {
+    var grant = res.locals.grant;
+    var scope = req.body.scope ? req.body.scope.split(' ') : [];
+    scope.forEach(function(s) {
+      if (grant.scope.indexOf(s) == -1) {
+        grant.scope.push(s);
+      }
+    });
+    
+    db.run('UPDATE grants SET scope = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [
+      grant.scope.join(' '),
+      grant.id
+    ], function(err) {
+      if (err) { return next(err); }
+      var to;
+      if (req.session.returnTo) {
+        to = url.parse(req.session.returnTo, true);
+        to.query.grant_id = grant.id;
+        to.query.scope = req.body.scope;
+        delete to.search;
+        to = url.format(to);
+        delete req.session.returnTo;
+      }
+      return res.redirect(to || '/');
     });
   });
 
