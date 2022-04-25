@@ -1,40 +1,52 @@
 {
-  "name": "express-4.x-oauth2orize-openid-example",
+  "name": "todosop",
   "version": "0.0.0",
-  "description": "Express 4.x app using OAuth2orize for identity and session management.",
+  "private": true,
+  "description": "OpenID Connect server using Express and OAuth2orize to provide identity information.",
   "keywords": [
     "example",
     "express",
     "oauth2orize",
-    "passport"
+    "passport",
+    "sqlite"
   ],
-  "author": "Jared Hanson",
-  "license": "Unlicense",
-  "homepage": "https://github.com/jaredhanson/express-4.x-oauth2orize-openid-example",
+  "author": {
+    "name": "Jared Hanson",
+    "email": "jaredhanson@gmail.com",
+    "url": "https://www.jaredhanson.me/"
+  },
+  "homepage": "https://github.com/oauth2orize/todosop",
   "repository": {
     "type": "git",
-    "url": "git://github.com/jaredhanson/express-4.x-oauth2orize-openid-example.git"
+    "url": "git://github.com/oauth2orize/todosop.git"
   },
   "bugs": {
-    "url": "https://github.com/jaredhanson/express-4.x-oauth2orize-openid-example/issues"
+    "url": "https://github.com/oauth2orize/todosop/issues"
   },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/jaredhanson"
+  },
+  "license": "Unlicense",
   "scripts": {
     "start": "node ./bin/www"
   },
   "dependencies": {
-    "body-parser": "^1.19.0",
+    "async": "^3.2.3",
     "connect-ensure-login": "^0.1.1",
-    "cookie-parser": "^1.3.5",
-    "ejs": "^2.6.2",
-    "express": "^4.17.1",
-    "express-session": "^1.16.1",
-    "jose": "^3.14.4",
-    "morgan": "^1.9.1",
+    "connect-sqlite3": "^0.9.13",
+    "cookie-parser": "~1.4.4",
+    "csurf": "^1.11.0",
+    "dateformat": "^4.6.3",
+    "debug": "~2.6.9",
+    "ejs": "~2.6.1",
+    "express": "~4.16.1",
+    "express-session": "^1.17.2",
+    "http-errors": "~1.6.3",
+    "mkdirp": "^1.0.4",
+    "morgan": "~1.9.1",
     "oauth2orize": "^1.11.0",
-    "oauth2orize-fprm": "^0.2.1",
-    "oauth2orize-openid": "^0.4.0",
-    "oauth2orize-response-mode": "^0.1.1",
-    "passport": "^0.4.0",
+    "passport": "^0.5.2",
     "passport-http": "^0.3.0",
     "passport-http-bearer": "^1.0.1",
     "passport-local": "^1.0.0",
