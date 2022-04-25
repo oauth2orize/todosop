@@ -60,64 +60,72 @@ as.grant(oauth2orize.grant.code(function issue(client, redirectURI, user, ares, 
 }));
 
 as.exchange(oauth2orize.exchange.code(function issue(client, code, redirectURI, cb) {
-  var now = Date.now();
-  db.get('SELECT * FROM authorization_codes WHERE code = ?', [
-    code
-  ], function(err, row) {
-    if (err) { return cb(err); }
-    if (!row) { return cb(null, false); }
-    if (row.client_id !== client.id) { return cb(null, false); }
-    if (row.redirect_uri !== redirectURI) { return cb(null, false); }
-    if (Date.parse(row.expires_at + 'Z') <= now) { return cb(null, false); }
-    
-    crypto.randomBytes(64, function(err, buffer) {
-      if (err) { return cb(err); }
-      var accessToken = buffer.toString('base64');
-      var expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
-      db.run('INSERT INTO access_tokens (user_id, client_id, scope, expires_at, token) VALUES (?, ?, ?, ?, ?)', [
-        row.user_id,
-        row.client_id,
-        row.scope,
-        dateFormat(expiresAt, 'yyyy-mm-dd HH:MM:ss', true),
-        accessToken,
-      ], function(err) {
+  async.waterfall([
+    function(next) {
+      var now = Date.now();
+      db.get('SELECT * FROM authorization_codes WHERE code = ?', [
+        code
+      ], function(err, row) {
         if (err) { return cb(err); }
-        
-        crypto.randomBytes(64, function(err, buffer) {
+        if (!row) { return cb(null, false); }
+        if (row.client_id !== client.id) { return cb(null, false); }
+        if (row.redirect_uri !== redirectURI) { return cb(null, false); }
+        if (Date.parse(row.expires_at + 'Z') <= now) { return cb(null, false); }
+        return next(null, row);
+      });
+    },
+    function(row, next) {
+      crypto.randomBytes(64, function(err, buffer) {
+        if (err) { return cb(err); }
+        var accessToken = buffer.toString('base64');
+        var expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+        db.run('INSERT INTO access_tokens (user_id, client_id, scope, expires_at, token) VALUES (?, ?, ?, ?, ?)', [
+          row.user_id,
+          row.client_id,
+          row.scope,
+          dateFormat(expiresAt, 'yyyy-mm-dd HH:MM:ss', true),
+          accessToken,
+        ], function(err) {
           if (err) { return cb(err); }
-          var refreshToken = buffer.toString('base64');
-          var expiresAt = new Date(Date.now() + 2592000000); // 30 days from now
-          db.run('INSERT INTO refresh_tokens (grant_id, expires_at, token) VALUES (?, ?, ?)', [
-            row.grant_id,
-            dateFormat(expiresAt, 'yyyy-mm-dd HH:MM:ss', true),
-            refreshToken,
-          ], function(err) {
-            if (err) { return cb(err); }
-            
-            var idToken = jws.sign({
-              header: {
-                alg: 'HS256'
-              },
-              payload: {
-                iss: 'https://server.example.com',
-                sub: String(row.user_id),
-                aud: String(row.client_id),
-                iat: Math.floor(now / 1000), // now, in seconds
-                exp: Math.floor(now / 1000) + 3600, // 1 hour from now, in seconds
-              },
-              secret: 'has a van',
-            });
-            
-            db.run('DELETE FROM authorization_codes WHERE code = ?', [
-              code
-            ], function(err) {
-              if (err) { return cb(err); }
-              return cb(null, accessToken, refreshToken, { expires_in: 3600, id_token: idToken });
-            });
-          });
+          return next(null, row, accessToken, { expires_in: 3600 });
         });
       });
-    });
+    },
+    function(row, accessToken, params, next) {
+      crypto.randomBytes(64, function(err, buffer) {
+        if (err) { return cb(err); }
+        var refreshToken = buffer.toString('base64');
+        var expiresAt = new Date(Date.now() + 2592000000); // 30 days from now
+        db.run('INSERT INTO refresh_tokens (grant_id, expires_at, token) VALUES (?, ?, ?)', [
+          row.grant_id,
+          dateFormat(expiresAt, 'yyyy-mm-dd HH:MM:ss', true),
+          refreshToken,
+        ], function(err) {
+          if (err) { return cb(err); }
+          return next(null, row, accessToken, refreshToken, params);
+        });
+      });
+    },
+    function(row, accessToken, refreshToken, params, next) {
+      var idToken = jws.sign({
+        header: {
+          alg: 'HS256'
+        },
+        payload: {
+          iss: 'https://server.example.com',
+          sub: String(row.user_id),
+          aud: String(row.client_id),
+          iat: Math.floor(now / 1000), // now, in seconds
+          exp: Math.floor(now / 1000) + 3600, // 1 hour from now, in seconds
+        },
+        secret: 'has a van',
+      });
+      params.id_token = idToken;
+      return next(null, row, accessToken, refreshToken, params);
+    }
+  ], function(err, row, accessToken, refreshToken, params) {
+    if (err) { return cb(err); }
+    return cb(null, accessToken, refreshToken, params);
   });
 }));
 
