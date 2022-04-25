@@ -107,17 +107,23 @@ as.exchange(oauth2orize.exchange.code(function issue(client, code, redirectURI, 
       });
     },
     function(row, accessToken, refreshToken, params, next) {
+      var scope = row.scope ? row.scope.split(' ') : [];
+      if (scope.indexOf('openid') == -1) { return next(null, row, accessToken, refreshToken, params); }
+      
+      var now = Date.now();
+      var claims = {
+        iss: 'https://server.example.com',
+        sub: String(row.user_id),
+        aud: String(row.client_id)
+      };
+      claims.iat = Math.floor(now / 1000); // now, in seconds
+      claims.exp = Math.floor(now / 1000) + 3600; // 1 hour from now, in seconds
+      
       var idToken = jws.sign({
         header: {
           alg: 'HS256'
         },
-        payload: {
-          iss: 'https://server.example.com',
-          sub: String(row.user_id),
-          aud: String(row.client_id),
-          iat: Math.floor(now / 1000), // now, in seconds
-          exp: Math.floor(now / 1000) + 3600, // 1 hour from now, in seconds
-        },
+        payload: claims,
         secret: 'has a van',
       });
       params.id_token = idToken;
@@ -125,6 +131,7 @@ as.exchange(oauth2orize.exchange.code(function issue(client, code, redirectURI, 
     }
   ], function(err, row, accessToken, refreshToken, params) {
     if (err) { return cb(err); }
+    console.log(params);
     return cb(null, accessToken, refreshToken, params);
   });
 }));
