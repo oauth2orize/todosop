@@ -1,6 +1,7 @@
 var createError = require('http-errors');
 var express = require('express');
 var oauth2orize = require('oauth2orize');
+var openid = require('oauth2orize-openid');
 var passport = require('passport');
 var HTTPBasicStrategy = require('passport-http').BasicStrategy;
 var OAuth2ClientPasswordStrategy = require('passport-oauth2-client-password');
@@ -33,6 +34,9 @@ passport.use(new OAuth2ClientPasswordStrategy(verify));
 
 
 var as = oauth2orize.createServer();
+
+as.grant(openid.extensions());
+as.grant(require('oauth2orize-response-mode').extensions());
 
 as.grant(oauth2orize.grant.code(function issue(client, redirectURI, user, ares, cb) {
   crypto.randomBytes(32, function(err, buffer) {
@@ -118,6 +122,35 @@ as.grant(oauth2orize.grant.token(function issue(client, user, ares, cb) {
     });
   });
 }));
+
+/*
+as.grant(openid.grant.idToken({
+  modes: {
+    form_post: require('oauth2orize-fprm')
+  } },
+  function(client, user, ares, areq, cb) {
+    console.log('GRANT ID TOKEN!');
+    console.log(client)
+    console.log(user);
+    console.log(ares);
+    console.log(areq);
+  
+    var jwt = new SignJWT({ sub: user.id, nonce: areq.nonce });
+    jwt.setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setIssuer('http://localhost:3001/')
+      .setAudience(client.id)
+      .setExpirationTime('2h')
+      .sign(crypto.createSecretKey(Buffer.from('foofyasdfaeecasdfdafdedadfdfaedafaeasdfaedbasde')))
+      .then(function(idToken) {
+        console.log('PROMISED TOKEN');
+        console.log(idToken);
+      
+        return cb(null, idToken);
+      })
+  }
+));
+*/
 
 as.serializeClient(function(client, cb) {
   process.nextTick(function() {
