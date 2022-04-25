@@ -9,6 +9,7 @@ var async = require('async');
 var url = require('url');
 var qs = require('querystring');
 var crypto = require('crypto');
+var jws = require('jws');
 var dateFormat = require('dateformat');
 var db = require('../db');
 
@@ -93,11 +94,25 @@ as.exchange(oauth2orize.exchange.code(function issue(client, code, redirectURI, 
           ], function(err) {
             if (err) { return cb(err); }
             
+            var idToken = jws.sign({
+              header: {
+                alg: 'HS256'
+              },
+              payload: {
+                iss: 'https://server.example.com',
+                sub: String(row.user_id),
+                aud: String(row.client_id),
+                iat: Math.floor(now / 1000), // now, in seconds
+                exp: Math.floor(now / 1000) + 3600, // 1 hour from now, in seconds
+              },
+              secret: 'has a van',
+            });
+            
             db.run('DELETE FROM authorization_codes WHERE code = ?', [
               code
             ], function(err) {
               if (err) { return cb(err); }
-              return cb(null, accessToken, refreshToken, { expires_in: 3600 });
+              return cb(null, accessToken, refreshToken, { expires_in: 3600, id_token: idToken });
             });
           });
         });
