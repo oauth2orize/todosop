@@ -110,28 +110,44 @@ as.exchange(oauth2orize.exchange.code(function issue(client, code, redirectURI, 
       var scope = row.scope ? row.scope.split(' ') : [];
       if (scope.indexOf('openid') == -1) { return next(null, row, accessToken, refreshToken, params); }
       
-      var now = Date.now();
-      var claims = {
-        iss: 'https://server.example.com',
-        sub: String(row.user_id),
-        aud: String(row.client_id)
-      };
-      claims.iat = Math.floor(now / 1000); // now, in seconds
-      claims.exp = Math.floor(now / 1000) + 3600; // 1 hour from now, in seconds
+      db.get('SELECT * FROM users WHERE id = ?', [ row.user_id ], function(err, user) {
+        if (err) { return cb(err); }
+        if (!user) { return cb(new Error('Failed to resolve user')); }
+        
+        var now = Date.now();
+        var claims = {
+          iss: 'https://server.example.com',
+          sub: String(row.user_id),
+          aud: String(row.client_id)
+        };
+        if (scope.indexOf('profile') != -1) {
+          if (user.name) { claims.name = user.name; }
+          if (user.username) { claims.preferred_username = user.username; }
+        }
+        if (scope.indexOf('email') != -1) {
+          if (user.email) { claims.email = user.email; }
+          if (user.email_verified) { claims.email_verified = user.email_verified; }
+        }
+        if (scope.indexOf('phone') != -1) {
+          if (user.phone_number) { claims.phone_number = user.phone_number; }
+          if (user.phone_number_verified) { claims.phone_number_verified = user.phone_number_verified; }
+        }
+        claims.iat = Math.floor(now / 1000); // now, in seconds
+        claims.exp = Math.floor(now / 1000) + 3600; // 1 hour from now, in seconds
       
-      var idToken = jws.sign({
-        header: {
-          alg: 'HS256'
-        },
-        payload: claims,
-        secret: 'has a van',
+        var idToken = jws.sign({
+          header: {
+            alg: 'HS256'
+          },
+          payload: claims,
+          secret: 'has a van',
+        });
+        params.id_token = idToken;
+        return next(null, row, accessToken, refreshToken, params);
       });
-      params.id_token = idToken;
-      return next(null, row, accessToken, refreshToken, params);
     }
   ], function(err, row, accessToken, refreshToken, params) {
     if (err) { return cb(err); }
-    console.log(params);
     return cb(null, accessToken, refreshToken, params);
   });
 }));
