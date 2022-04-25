@@ -13,7 +13,7 @@ var SQLiteStore = require('connect-sqlite3')(session);
 var authRouter = require('./routes/auth');
 var authzRouter = require('./routes/authz');
 var oauth2Router = require('./routes/oauth2');
-var userinfoRouter = require('./routes/userinfo');
+var userinfoRouter = require('./routes/openidconnect/userinfo');
 
 var app = express();
 
@@ -44,7 +44,7 @@ app.use(passport.authenticate('session'));
 app.use('/', authRouter);
 app.use('/', authzRouter);
 app.use('/oauth2', oauth2Router);
-app.use('/openidconnect', userinfoRouter);
+app.use('/openidconnect/userinfo', userinfoRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

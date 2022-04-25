@@ -2,7 +2,7 @@ var createError = require('http-errors');
 var express = require('express');
 var passport = require('passport');
 var HTTPBearerStrategy = require('passport-http-bearer');
-var db = require('../db');
+var db = require('../../db');
 
 
 passport.use(new HTTPBearerStrategy(function verify(token, cb) {
@@ -27,7 +27,7 @@ passport.use(new HTTPBearerStrategy(function verify(token, cb) {
 
 var router = express.Router();
 
-router.get('/userinfo', passport.authenticate('bearer', { session: false, failWithError: true }), function(req, res, next) {
+router.get('/', passport.authenticate('bearer', { session: false, failWithError: true }), function(req, res, next) {
   db.get('SELECT * FROM users WHERE id = ?', [ req.user.id ], function(err, row) {
     if (err) { return next(err); }
     if (!row) { return next(createError(403)); }
